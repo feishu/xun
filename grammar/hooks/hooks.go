@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"strings"
 
+	"gitee.com/chunanyong/dm"
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	"github.com/qustavo/sqlhooks/v2"
 	"github.com/yaoapp/xun/dbal"
+	gdameng "github.com/yaoapp/xun/grammar/dameng"
 	gmysql "github.com/yaoapp/xun/grammar/mysql"
 	gpostgres "github.com/yaoapp/xun/grammar/postgres"
 	gsql "github.com/yaoapp/xun/grammar/sql"
@@ -124,6 +126,8 @@ func (d *Driver) driver() driver.Driver {
 		return &pq.Driver{}
 	case "sqlite3":
 		return &sqlite3.SQLiteDriver{}
+	case "dameng":
+		return &dm.DmDriver{}
 	}
 	return nil
 }
@@ -136,6 +140,8 @@ func (d *Driver) grammar() dbal.Grammar {
 		return gpostgres.New(gsql.WithDriver(d.name))
 	case "sqlite3":
 		return gsqlite3.New(gsql.WithDriver(d.name))
+	case "dameng":
+		return gdameng.New(gsql.WithDriver(d.name))
 	}
 	return nil
 }
