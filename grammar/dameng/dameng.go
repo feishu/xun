@@ -43,12 +43,10 @@ func (grammarSQL *Dameng) setup(db *sqlx.DB, config *dbal.Config, option *dbal.O
 				grammarSQL.DatabaseName = cfg.DatabaseName
 			}
 			// Set schema name
-			schema := cfg.Schema
-			if schema == "" {
-				schema = cfg.User
-			}
-			if schema != "" {
-				grammarSQL.SchemaName = schema
+			if cfg.Schema != "" {
+				grammarSQL.SchemaName = cfg.Schema
+			} else {
+				grammarSQL.SchemaName = cfg.User
 			}
 		}
 	}
