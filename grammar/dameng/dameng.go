@@ -34,10 +34,32 @@ func (grammarSQL *Dameng) setup(db *sqlx.DB, config *dbal.Config, option *dbal.O
 	grammarSQL.Config = config
 	grammarSQL.Option = option
 
-	// 达梦数据库使用数据库名作为schema
-	if config.Name != "" {
+	// Parse DSN to get database name and schema
+	if config.DSN != "" {
+		cfg, err := ParseDSN(config.DSN)
+		if err == nil {
+			// Set database name
+			if cfg.DatabaseName != "" {
+				grammarSQL.DatabaseName = cfg.DatabaseName
+			}
+			// Set schema name
+			schema := cfg.Schema
+			if schema == "" {
+				schema = cfg.User
+			}
+			if schema != "" {
+				grammarSQL.SchemaName = schema
+			}
+		}
+	}
+
+	// If DSN parsing failed or no database name, use config.Name
+	if grammarSQL.DatabaseName == "" && config.Name != "" {
 		grammarSQL.DatabaseName = config.Name
-		grammarSQL.SchemaName = config.Name
+		// Default to using database name as schema if no schema specified
+		if grammarSQL.SchemaName == "" {
+			grammarSQL.SchemaName = config.Name
+		}
 	}
 
 	return nil
@@ -81,7 +103,7 @@ func New(opts ...sql.Option) dbal.Grammar {
 
 	// 达梦数据库数据类型映射（与GORM保持一致）
 	types := dm.SQL.Types
-	types["string"] = "VARCHAR"        // 与GORM v1/v2保持一致
+	types["string"] = "VARCHAR" // 与GORM v1/v2保持一致
 	types["text"] = "CLOB"
 	types["mediumText"] = "CLOB"
 	types["longText"] = "CLOB"
