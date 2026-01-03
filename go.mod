@@ -3,6 +3,7 @@ module github.com/yaoapp/xun
 go 1.18
 
 require (
+	gitee.com/chunanyong/dm v1.8.22
 	github.com/TylerBrock/colorjson v0.0.0-20200706003622-8a50f05110d2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/fatih/color v1.13.0
@@ -17,7 +18,6 @@ require (
 )
 
 require (
-	gitee.com/chunanyong/dm v1.8.21 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/mattn/go-colorable v0.1.11 // indirect
