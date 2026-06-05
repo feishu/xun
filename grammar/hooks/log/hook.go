@@ -23,7 +23,7 @@ func init() {
 // Default default log hook instance
 var Default = &Hook{
 	Logger:       &KunLogger{},
-	Level:        log.InfoLevel,
+	Level:        log.TraceLevel,
 	MaxFieldSize: 256,
 }
 
