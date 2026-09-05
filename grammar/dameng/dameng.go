@@ -1,23 +1,36 @@
 package dameng
 
 import (
+	"database/sql"
 	"fmt"
 
-	_ "gitee.com/chunanyong/dm" // Load dameng driver
+	dmDriver "gitee.com/chunanyong/dm" // Load dameng driver
 	"github.com/jmoiron/sqlx"
 	"github.com/yaoapp/xun/dbal"
-	"github.com/yaoapp/xun/grammar/sql"
+	sqlGrammar "github.com/yaoapp/xun/grammar/sql"
 	"github.com/yaoapp/xun/utils"
 )
 
 // Dameng the Dameng Grammar
 type Dameng struct {
-	sql.SQL
+	sqlGrammar.SQL
 }
 
 func init() {
 	dbal.Register("dameng", New())
 	dbal.Register("dm", New())
+
+	// 向 database/sql 注册 "dameng" 驱动别名（指向 DmDriver），确保使用 "dameng" 或 "dm" 均能被标准库识别
+	registered := false
+	for _, driver := range sql.Drivers() {
+		if driver == "dameng" {
+			registered = true
+			break
+		}
+	}
+	if !registered {
+		sql.Register("dameng", &dmDriver.DmDriver{})
+	}
 }
 
 // setup the method will be executed when db server was connected
@@ -87,9 +100,9 @@ func (grammarSQL Dameng) NewWithRead(write *sqlx.DB, writeConfig *dbal.Config, r
 }
 
 // New Create a new dameng grammar interface
-func New(opts ...sql.Option) dbal.Grammar {
+func New(opts ...sqlGrammar.Option) dbal.Grammar {
 	dm := Dameng{
-		SQL: sql.NewSQL(&Quoter{}, opts...),
+		SQL: sqlGrammar.NewSQL(&Quoter{}, opts...),
 	}
 	if dm.Driver == "" || dm.Driver == "sql" {
 		dm.Driver = "dameng"
@@ -99,7 +112,7 @@ func New(opts ...sql.Option) dbal.Grammar {
 		"index":  "INDEX",
 	}
 
-	// 达梦数据库数据类型映射（与GORM保持一致）
+	// 达梦数据库数据类型映射（与GORM保持一致，并补充JSON/UUID/ENUM支持）
 	types := dm.SQL.Types
 	types["string"] = "VARCHAR" // 与GORM v1/v2保持一致
 	types["text"] = "CLOB"
@@ -121,6 +134,10 @@ func New(opts ...sql.Option) dbal.Grammar {
 	types["float"] = "FLOAT"
 	types["double"] = "DOUBLE PRECISION"
 	types["char"] = "CHAR"
+	types["json"] = "CLOB"
+	types["jsonb"] = "CLOB"
+	types["uuid"] = "VARCHAR"
+	types["enum"] = "VARCHAR"
 	dm.Types = types
 
 	// set fliptypes

@@ -18,7 +18,7 @@ func (grammarSQL Dameng) CompileSelectOffset(query *dbal.Query, offset *int) str
 
 	// SQL STMT
 	if query.SQL != "" {
-		return query.SQL
+		return cleanBackticks(query.SQL)
 	}
 
 	if len(query.Unions) > 0 && query.Aggregate.Func != "" {
@@ -112,4 +112,37 @@ func (grammarSQL Dameng) CompileLock(query *dbal.Query, lock interface{}) string
 // 达梦数据库需要使用 DUAL 表（类似Oracle）
 func (grammarSQL Dameng) SelectFromDummyTable() string {
 	return "from DUAL"
+}
+
+// cleanBackticks 将 SQL 中单引号字符串字面量外部的反引号（`）安全替换为达梦标准双引号（"）
+// 该函数严格限定在达梦方言编译器内部，用于保证上层生成或传入带有反引号的 Raw SQL 时，
+// 能自动安全适配达梦语法，且单引号内的文本字面量保持原样不变。
+func cleanBackticks(sql string) string {
+	if !strings.Contains(sql, "`") {
+		return sql
+	}
+	var sb strings.Builder
+	sb.Grow(len(sql))
+	inSingleQuote := false
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+		if ch == '\'' {
+			// 处理 SQL 标准单引号转义 ''
+			if inSingleQuote && i+1 < len(sql) && sql[i+1] == '\'' {
+				sb.WriteByte('\'')
+				sb.WriteByte('\'')
+				i++
+				continue
+			}
+			inSingleQuote = !inSingleQuote
+			sb.WriteByte('\'')
+			continue
+		}
+		if ch == '`' && !inSingleQuote {
+			sb.WriteByte('"')
+		} else {
+			sb.WriteByte(ch)
+		}
+	}
+	return sb.String()
 }

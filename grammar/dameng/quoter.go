@@ -18,6 +18,7 @@ type Quoter struct {
 // 达梦数据库使用双引号作为标识符引用，类似PostgreSQL
 func (quoter Quoter) ID(name string) string {
 	name = strings.ReplaceAll(name, "\"", "")
+	name = strings.ReplaceAll(name, "`", "")
 	name = strings.ReplaceAll(name, "\n", "")
 	name = strings.ReplaceAll(name, "\r", "")
 	return "\"" + name + "\""
@@ -39,7 +40,7 @@ func (quoter Quoter) VAL(v interface{}) string {
 	default:
 		input = fmt.Sprintf("%v", v)
 	}
-	input = strings.ReplaceAll(input, "'", "\\'")
+	input = strings.ReplaceAll(input, "'", "''")
 	input = strings.ReplaceAll(input, "\n", "")
 	input = strings.ReplaceAll(input, "\r", "")
 	return "'" + input + "'"
@@ -53,9 +54,9 @@ func (quoter *Quoter) Wrap(value interface{}) string {
 	case dbal.Name:
 		col := value.(dbal.Name)
 		if col.As() != "" {
-			return fmt.Sprintf("%s as %s", quoter.ID(col.Name), col.As())
+			return fmt.Sprintf("%s as %s", quoter.WrapAliasedValue(col.Name), quoter.ID(col.As()))
 		}
-		return quoter.ID(value.(dbal.Name).Name)
+		return quoter.WrapAliasedValue(col.Name)
 	case dbal.Select:
 		col := value.(dbal.Select)
 		if col.Alias != "" {
@@ -96,13 +97,13 @@ func (quoter *Quoter) WrapTable(value interface{}) string {
 	case dbal.Name:
 		col := value.(dbal.Name)
 		if col.As() != "" {
-			return fmt.Sprintf("%s as %s", quoter.ID(col.Fullname()), quoter.ID(col.As()))
+			return fmt.Sprintf("%s as %s", quoter.WrapAliasedValue(col.Fullname()), quoter.ID(col.As()))
 		}
-		return quoter.ID(value.(dbal.Name).Fullname())
+		return quoter.WrapAliasedValue(col.Fullname())
 	case dbal.From:
 		return quoter.WrapTable(value.(dbal.From).Name)
 	case string:
-		return quoter.ID(dbal.NewName(value.(string)).Fullname())
+		return quoter.WrapAliasedValue(value.(string))
 	default:
 		return fmt.Sprintf("%v", value)
 	}
@@ -120,8 +121,8 @@ func (quoter *Quoter) Parameter(value interface{}, num int) string {
 // Parameterize Create query parameter place-holders for an array.
 func (quoter *Quoter) Parameterize(values []interface{}, offset int) string {
 	params := []string{}
-	for range values {
-		params = append(params, "?")
+	for idx, value := range values {
+		params = append(params, quoter.Parameter(value, offset+idx+1))
 	}
 	return strings.Join(params, ",")
 }

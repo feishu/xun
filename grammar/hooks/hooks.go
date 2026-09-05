@@ -72,8 +72,8 @@ func RegisterDriver(name string) (err error) {
 func NewDriver(name string) (*Driver, error) {
 	parts := strings.Split(name, ":")
 	typ := parts[0]
-	if typ != "mysql" && typ != "postgres" && typ != "sqlite3" {
-		return nil, fmt.Errorf("driver type %s not in [mysql, postgres, sqlite3]", typ)
+	if typ != "mysql" && typ != "postgres" && typ != "sqlite3" && typ != "dameng" && typ != "dm" {
+		return nil, fmt.Errorf("driver type %s not in [mysql, postgres, sqlite3, dameng, dm]", typ)
 	}
 	if len(parts) == 1 {
 		return nil, NoHooksError
@@ -126,7 +126,7 @@ func (d *Driver) driver() driver.Driver {
 		return &pq.Driver{}
 	case "sqlite3":
 		return &sqlite3.SQLiteDriver{}
-	case "dameng":
+	case "dameng", "dm":
 		return &dm.DmDriver{}
 	}
 	return nil
@@ -140,7 +140,7 @@ func (d *Driver) grammar() dbal.Grammar {
 		return gpostgres.New(gsql.WithDriver(d.name))
 	case "sqlite3":
 		return gsqlite3.New(gsql.WithDriver(d.name))
-	case "dameng":
+	case "dameng", "dm":
 		return gdameng.New(gsql.WithDriver(d.name))
 	}
 	return nil

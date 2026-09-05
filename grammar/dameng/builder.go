@@ -27,6 +27,12 @@ func (grammarSQL Dameng) SQLAddColumn(column *dbal.Column) string {
 		// BLOB和CLOB不需要长度，保持原样
 	} else if column.Length != nil {
 		typ = fmt.Sprintf("%s(%d)", typ, utils.IntVal(column.Length))
+	} else if typ == "VARCHAR" {
+		if column.Type == "uuid" {
+			typ = "VARCHAR(36)"
+		} else {
+			typ = "VARCHAR(255)"
+		}
 	}
 
 	unsigned := ""
@@ -55,12 +61,13 @@ func (grammarSQL Dameng) SQLAddColumn(column *dbal.Column) string {
 		typ = "SMALLINT"
 	}
 
-	sql := fmt.Sprintf(
-		"%s %s %s %s %s %s %s",
-		quoter.ID(column.Name), typ, unsigned, nullable, defaultValue, extra, collation)
-
-	sql = strings.Trim(sql, " ")
-	return sql
+	parts := []string{quoter.ID(column.Name), typ}
+	for _, p := range []string{unsigned, nullable, defaultValue, extra, collation} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // SQLAddComment return the add comment sql for table create

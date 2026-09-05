@@ -34,7 +34,7 @@ func (grammarSQL Dameng) GetVersion() (*dbal.Version, error) {
 
 // GetTables Get all of the table names for the database.
 func (grammarSQL Dameng) GetTables() ([]string, error) {
-	sql := "SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = USER ORDER BY TABLE_NAME"
+	sql := "SELECT TABLE_NAME FROM ALL_TABLES WHERE (OWNER = USER OR OWNER = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')) ORDER BY TABLE_NAME"
 	defer log.Debug(sql)
 	tables := []string{}
 	err := grammarSQL.DB.Select(&tables, sql)
@@ -44,11 +44,31 @@ func (grammarSQL Dameng) GetTables() ([]string, error) {
 	return tables, nil
 }
 
+// getRealTableName 探测表在达梦数据字典中的真实存储名称（兼顾原名、大写、小写）
+func (grammarSQL Dameng) getRealTableName(tableName string) string {
+	sql := fmt.Sprintf(
+		"SELECT TABLE_NAME FROM ALL_TABLES WHERE (OWNER = USER OR OWNER = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')) AND TABLE_NAME IN (%s, %s, %s) ORDER BY CASE WHEN TABLE_NAME = %s THEN 1 WHEN TABLE_NAME = %s THEN 2 ELSE 3 END LIMIT 1",
+		grammarSQL.VAL(tableName),
+		grammarSQL.VAL(strings.ToUpper(tableName)),
+		grammarSQL.VAL(strings.ToLower(tableName)),
+		grammarSQL.VAL(tableName),
+		grammarSQL.VAL(strings.ToUpper(tableName)),
+	)
+	var realName string
+	err := grammarSQL.DB.Get(&realName, sql)
+	if err != nil || realName == "" {
+		return tableName
+	}
+	return realName
+}
+
 // TableExists check if the table exists
 func (grammarSQL Dameng) TableExists(name string) (bool, error) {
 	sql := fmt.Sprintf(
-		"SELECT COUNT(*) as cnt FROM ALL_TABLES WHERE OWNER = USER AND TABLE_NAME = %s",
+		"SELECT COUNT(*) as cnt FROM ALL_TABLES WHERE (OWNER = USER OR OWNER = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')) AND TABLE_NAME IN (%s, %s, %s)",
+		grammarSQL.VAL(name),
 		grammarSQL.VAL(strings.ToUpper(name)),
+		grammarSQL.VAL(strings.ToLower(name)),
 	)
 	defer log.Debug(sql)
 	var cnt int
@@ -151,40 +171,33 @@ func (grammarSQL Dameng) createTableAddColumn(table *dbal.Table, stmts *[]string
 }
 
 func (grammarSQL Dameng) createTableCreateIndex(table *dbal.Table, indexes []*dbal.Index) error {
-	indexStmts := []string{}
-
 	for _, index := range indexes {
 		if index.Type == "primary" {
 			continue
 		}
 		indexStmt := grammarSQL.SQLAddIndex(index)
 		if indexStmt != "" {
-			indexStmts = append(indexStmts, indexStmt)
+			indexStmt = strings.TrimSuffix(strings.TrimSpace(indexStmt), ";")
+			defer log.Debug(indexStmt)
+			_, err := grammarSQL.DB.Exec(indexStmt)
+			if err != nil {
+				return err
+			}
 		}
-	}
-	if len(indexStmts) > 0 {
-		sql := strings.Join(indexStmts, ";\n")
-		defer log.Debug(sql)
-		_, err := grammarSQL.DB.Exec(sql)
-		return err
 	}
 	return nil
 }
 
 func (grammarSQL Dameng) createTableAddComment(table *dbal.Table, commentStmts []string) error {
-	if len(commentStmts) > 0 {
-		sql := strings.Join(commentStmts, ";\n")
-		defer log.Debug(sql)
-		_, err := grammarSQL.DB.Exec(sql)
-		return err
-
-		// for _, sql := range commentStmts {
-		// 	defer log.Debug(sql)
-		// 	_, err := grammarSQL.DB.Exec(sql)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// }
+	for _, sql := range commentStmts {
+		sql = strings.TrimSuffix(strings.TrimSpace(sql), ";")
+		if sql != "" {
+			defer log.Debug(sql)
+			_, err := grammarSQL.DB.Exec(sql)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -472,6 +485,8 @@ func (grammarSQL Dameng) alterTableDropPrimary(table *dbal.Table, command *dbal.
 
 // GetColumnListing get a table columns structure
 func (grammarSQL Dameng) GetColumnListing(dbName string, tableName string) ([]*dbal.Column, error) {
+	realTableName := grammarSQL.getRealTableName(tableName)
+
 	// 使用达梦数据库系统表查询列信息，包括注释
 	sql := fmt.Sprintf(`
 		SELECT 
@@ -488,9 +503,9 @@ func (grammarSQL Dameng) GetColumnListing(dbName string, tableName string) ([]*d
 		LEFT JOIN ALL_COL_COMMENTS cm ON c.OWNER = cm.OWNER 
 			AND c.TABLE_NAME = cm.TABLE_NAME 
 			AND c.COLUMN_NAME = cm.COLUMN_NAME
-		WHERE c.OWNER = USER AND c.TABLE_NAME = %s
+		WHERE (c.OWNER = USER OR c.OWNER = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')) AND c.TABLE_NAME = %s
 		ORDER BY c.COLUMN_ID
-	`, grammarSQL.VAL(strings.ToUpper(tableName)))
+	`, grammarSQL.VAL(realTableName))
 
 	defer log.Debug(sql)
 
@@ -542,19 +557,23 @@ func (grammarSQL Dameng) GetColumnListing(dbName string, tableName string) ([]*d
 
 		// 处理长度
 		if dataLength != nil {
-			length := int(dataLength.(int64))
-			column.Length = &length
+			length := anyToInt(dataLength)
+			if length > 0 {
+				column.Length = &length
+			}
 		}
 
 		// 处理精度
 		if dataPrecision != nil {
-			precision := int(dataPrecision.(int64))
-			column.Precision = &precision
+			precision := anyToInt(dataPrecision)
+			if precision > 0 {
+				column.Precision = &precision
+			}
 		}
 
 		// 处理小数位数
 		if dataScale != nil {
-			scale := int(dataScale.(int64))
+			scale := anyToInt(dataScale)
 			column.Scale = &scale
 		}
 
@@ -601,6 +620,8 @@ func (grammarSQL Dameng) GetColumnListing(dbName string, tableName string) ([]*d
 
 // GetIndexListing get a table indexes structure
 func (grammarSQL Dameng) GetIndexListing(dbName string, tableName string) ([]*dbal.Index, error) {
+	realTableName := grammarSQL.getRealTableName(tableName)
+
 	// 使用达梦数据库系统表查询索引信息，包括主键
 	sql := fmt.Sprintf(`
 		SELECT 
@@ -619,9 +640,9 @@ func (grammarSQL Dameng) GetIndexListing(dbName string, tableName string) ([]*db
 		LEFT JOIN ALL_CONSTRAINTS c ON i.INDEX_NAME = c.CONSTRAINT_NAME
 			AND i.TABLE_NAME = c.TABLE_NAME
 			AND i.TABLE_OWNER = c.OWNER
-		WHERE i.TABLE_OWNER = USER AND i.TABLE_NAME = %s
+		WHERE (i.TABLE_OWNER = USER OR i.TABLE_OWNER = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')) AND i.TABLE_NAME = %s
 		ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION
-	`, grammarSQL.VAL(strings.ToUpper(tableName)))
+	`, grammarSQL.VAL(realTableName))
 
 	defer log.Debug(sql)
 
@@ -667,4 +688,48 @@ func (grammarSQL Dameng) GetIndexListing(dbName string, tableName string) ([]*db
 	}
 
 	return indexes, nil
+}
+
+func anyToInt(v interface{}) int {
+	if v == nil {
+		return 0
+	}
+	switch val := v.(type) {
+	case int:
+		return val
+	case int8:
+		return int(val)
+	case int16:
+		return int(val)
+	case int32:
+		return int(val)
+	case int64:
+		return int(val)
+	case uint:
+		return int(val)
+	case uint8:
+		return int(val)
+	case uint16:
+		return int(val)
+	case uint32:
+		return int(val)
+	case uint64:
+		return int(val)
+	case float32:
+		return int(val)
+	case float64:
+		return int(val)
+	case string:
+		var n int
+		fmt.Sscanf(val, "%d", &n)
+		return n
+	case []byte:
+		var n int
+		fmt.Sscanf(string(val), "%d", &n)
+		return n
+	default:
+		var n int
+		fmt.Sscanf(fmt.Sprintf("%v", val), "%d", &n)
+		return n
+	}
 }

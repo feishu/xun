@@ -2,35 +2,102 @@ package dameng
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/yaoapp/xun/dbal"
 )
 
 // CompileInsertOrIgnore Compile an insert ignore statement into SQL.
-// 达梦数据库使用ON DUPLICATE KEY IGNORE（类似MySQL）
+// 达梦数据库使用 MERGE INTO 实现无冲突安全插入（WHEN NOT MATCHED THEN INSERT）
 func (grammarSQL Dameng) CompileInsertOrIgnore(query *dbal.Query, columns []interface{}, values [][]interface{}) (string, []interface{}) {
-	sql, bindings := grammarSQL.CompileInsert(query, columns, values)
-	// 达梦数据库可以使用IGNORE关键字（类似MySQL）
-	sql = fmt.Sprintf("insert ignore %s", sql[6:]) // 替换insert为insert ignore
-	return sql, bindings
+	if len(values) == 0 {
+		return fmt.Sprintf("insert into %s default values", grammarSQL.WrapTable(query.From)), []interface{}{}
+	}
+
+	// 查找主键或唯一标识列作为 ON 条件（默认优先使用 id）
+	var uniqueCol interface{}
+	for _, col := range columns {
+		colStr := fmt.Sprintf("%v", col)
+		if strings.EqualFold(colStr, "id") {
+			uniqueCol = col
+			break
+		}
+	}
+	if uniqueCol == nil && len(columns) > 0 {
+		uniqueCol = columns[0]
+	}
+
+	// 如果找到了关键列，使用 MERGE INTO 构建忽略插入
+	if uniqueCol != nil {
+		bindings := []interface{}{}
+		tableName := grammarSQL.WrapTable(query.From)
+
+		sql := fmt.Sprintf("MERGE INTO %s USING (", tableName)
+
+		valueClauses := []string{}
+		for i, row := range values {
+			placeholders := []string{}
+			for _, col := range columns {
+				if i == 0 {
+					placeholders = append(placeholders, fmt.Sprintf("? AS %s", grammarSQL.Wrap(col)))
+				} else {
+					placeholders = append(placeholders, "?")
+				}
+			}
+			valueClauses = append(valueClauses, fmt.Sprintf("SELECT %s FROM DUAL", strings.Join(placeholders, ", ")))
+			bindings = append(bindings, row...)
+		}
+		sql += strings.Join(valueClauses, " UNION ALL ")
+
+		sql += ") "
+		sql += grammarSQL.ID("excluded")
+		sql += " ON ("
+
+		colName := grammarSQL.Wrap(uniqueCol)
+		sql += fmt.Sprintf("%s.%s = %s.%s", tableName, colName, grammarSQL.ID("excluded"), colName)
+		sql += ")"
+
+		// WHEN NOT MATCHED THEN INSERT (...) VALUES (...)
+		sql += " WHEN NOT MATCHED THEN INSERT ("
+		insertColumns := []string{}
+		for _, col := range columns {
+			insertColumns = append(insertColumns, grammarSQL.Wrap(col))
+		}
+		sql += strings.Join(insertColumns, ", ")
+		sql += ") VALUES ("
+		insertValues := []string{}
+		for _, col := range columns {
+			cName := grammarSQL.Wrap(col)
+			insertValues = append(insertValues, fmt.Sprintf("%s.%s", grammarSQL.ID("excluded"), cName))
+		}
+		sql += strings.Join(insertValues, ", ")
+		sql += ")"
+
+		return sql, bindings
+	}
+
+	return grammarSQL.CompileInsert(query, columns, values)
 }
 
 // CompileInsertGetID Compile an insert and get ID statement into SQL.
-// 达梦数据库支持RETURNING子句（类似PostgreSQL）
 func (grammarSQL Dameng) CompileInsertGetID(query *dbal.Query, columns []interface{}, values [][]interface{}, sequence string) (string, []interface{}) {
-	sql, bindings := grammarSQL.CompileInsert(query, columns, values)
-	sql = fmt.Sprintf("%s returning %s", sql, grammarSQL.ID(sequence))
-	return sql, bindings
+	return grammarSQL.CompileInsert(query, columns, values)
 }
 
 // ProcessInsertGetID Execute an insert and get ID statement and return the id
 func (grammarSQL Dameng) ProcessInsertGetID(sql string, bindings []interface{}, sequence string) (int64, error) {
-	var seq int64
-	err := grammarSQL.DB.Get(&seq, sql, bindings...)
+	stmt, err := grammarSQL.DB.Prepare(sql)
 	if err != nil {
 		return 0, err
 	}
-	return seq, nil
+	defer stmt.Close()
+
+	res, err := stmt.Exec(bindings...)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.LastInsertId()
 }
 
 // SetIdentityInsert Enable IDENTITY_INSERT for a table

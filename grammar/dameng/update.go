@@ -44,28 +44,26 @@ func (grammarSQL Dameng) CompileUpsert(query *dbal.Query, columns []interface{},
 	// MERGE INTO table_name
 	sql := fmt.Sprintf("MERGE INTO %s USING (", tableName)
 
-	// 构造 USING 子句: SELECT ?, ?, ? FROM DUAL UNION ALL SELECT ?, ?, ? FROM DUAL ...
+	// 构造 USING 子句: SELECT ? AS "col1", ? AS "col2" FROM DUAL UNION ALL SELECT ?, ? FROM DUAL ...
 	valueClauses := []string{}
-	for _, row := range values {
+	for i, row := range values {
 		placeholders := []string{}
-		for range columns {
-			placeholders = append(placeholders, "?")
+		for _, col := range columns {
+			if i == 0 {
+				placeholders = append(placeholders, fmt.Sprintf("? AS %s", grammarSQL.Wrap(col)))
+			} else {
+				placeholders = append(placeholders, "?")
+			}
 		}
 		valueClauses = append(valueClauses, fmt.Sprintf("SELECT %s FROM DUAL", strings.Join(placeholders, ", ")))
 		bindings = append(bindings, row...)
 	}
 	sql += strings.Join(valueClauses, " UNION ALL ")
 
-	// AS "excluded" (col1, col2, ...)
-	sql += ") AS "
+	// "excluded" ON (注意：达梦/Oracle不支持在子查询别名后追加列清单，也不支持AS别名)
+	sql += ") "
 	sql += grammarSQL.ID("excluded")
-	sql += " ("
-	columnNames := []string{}
-	for _, col := range columns {
-		columnNames = append(columnNames, grammarSQL.Wrap(col))
-	}
-	sql += strings.Join(columnNames, ", ")
-	sql += ") ON ("
+	sql += " ON ("
 
 	// ON 条件: table.key1 = excluded.key1 AND table.key2 = excluded.key2
 	onClauses := []string{}
