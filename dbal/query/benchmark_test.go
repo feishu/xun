@@ -3,6 +3,8 @@ package query
 import (
 	"reflect"
 	"testing"
+
+	"github.com/yaoapp/xun/dbal"
 )
 
 // reflectGetValue 原实现的反射逻辑，用于基准对照
@@ -62,5 +64,14 @@ func BenchmarkGetValue_Bytes_Optimized(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = builder.getValue(ptr)
+	}
+}
+
+func BenchmarkBuilder_Clone(b *testing.B) {
+	builder := &Builder{Query: dbal.NewQuery()}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = builder.Clone()
 	}
 }

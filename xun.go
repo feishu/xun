@@ -207,6 +207,42 @@ func MakeP(total int, pageSize int, currentPage int, items ...interface{}) P {
 
 }
 
+// MakeRecordSetPaginator create a new RecordSetPaginator struct
+func MakeRecordSetPaginator(total int, pageSize int, currentPage int, rs *RecordSet) RecordSetPaginator {
+	if pageSize < 1 {
+		pageSize = 15
+	}
+
+	if currentPage < 1 {
+		currentPage = 1
+	}
+
+	pagecnt := int(math.Ceil(float64(total) / float64(pageSize)))
+	next := currentPage + 1
+	prev := currentPage - 1
+	last := pagecnt
+
+	if next > pagecnt {
+		next = -1
+	}
+
+	if prev <= 0 {
+		prev = -1
+	}
+
+	return RecordSetPaginator{
+		RecordSet:    rs,
+		Total:        total,
+		TotalPages:   pagecnt,
+		PageSize:     pageSize,
+		CurrentPage:  currentPage,
+		NextPage:     next,
+		PreviousPage: prev,
+		LastPage:     last,
+	}
+}
+
+
 // Value get the value of the given key ( alias Get)
 func (row R) Value(key interface{}) interface{} {
 	return row.Get(key)

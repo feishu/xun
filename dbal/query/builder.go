@@ -28,6 +28,18 @@ func (builder *Builder) Context() context.Context {
 	return context.Background()
 }
 
+// WithTx bind a physical database transaction for query execution (returns a safe clone)
+func (builder *Builder) WithTx(tx *sqlx.Tx) Query {
+	cloned := builder.clone()
+	cloned.tx = tx
+	return cloned
+}
+
+// Tx get the active transaction pointer
+func (builder *Builder) Tx() *sqlx.Tx {
+	return builder.tx
+}
+
 // New create a new schema interface using the given driver and DSN
 func New(driver string, dsn string) Query {
 	builder := newBuilder(driver, dsn)
@@ -95,10 +107,13 @@ func (builder *Builder) NewBuilder() *Builder {
 
 // clone create a new builder instance with current builder
 func (builder *Builder) clone() *Builder {
-	new := builder.new()
-	*new = *builder
-	new.Query = builder.Query.Clone()
-	return new
+	new := *builder
+	if builder.Query != nil {
+		new.Query = builder.Query.Clone()
+	} else {
+		new.Query = dbal.NewQuery()
+	}
+	return &new
 }
 
 // new create a new builder instance

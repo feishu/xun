@@ -69,3 +69,17 @@ func (rs *RecordSet) ToR() []R {
 	return result
 }
 
+// RecordSetPaginator 紧凑记录集分页结果
+type RecordSetPaginator struct {
+	RecordSet    *RecordSet             `json:"record_set"`
+	Total        int                    `json:"total"`
+	TotalPages   int                    `json:"total_pages"`
+	PageSize     int                    `json:"page_size"`
+	CurrentPage  int                    `json:"current_page"`
+	NextPage     int                    `json:"next_page"`
+	PreviousPage int                    `json:"previous_page"`
+	LastPage     int                    `json:"last_page"`
+	Options      map[string]interface{} `json:"options,omitempty"`
+}
+
+

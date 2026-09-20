@@ -19,7 +19,7 @@ func (builder *Builder) Table(name string) Query {
 
 // Get Execute the query as a "select" statement.
 func (builder *Builder) Get(v ...interface{}) ([]xun.R, error) {
-	db := builder.DB()
+	db := builder.Executor()
 	sqlStr := builder.ToSQL()
 	bindings := builder.GetBindings()
 
@@ -52,7 +52,7 @@ func (builder *Builder) MustGet(v ...interface{}) []xun.R {
 
 // GetRecordSet Execute the query and return a compact column-oriented RecordSet
 func (builder *Builder) GetRecordSet() (*xun.RecordSet, error) {
-	db := builder.DB()
+	db := builder.Executor()
 	sqlStr := builder.ToSQL()
 	bindings := builder.GetBindings()
 
@@ -105,7 +105,7 @@ func (builder *Builder) GetBindings() []interface{} {
 func (builder *Builder) Exists() (bool, error) {
 	sql := builder.Grammar.CompileExists(builder.Query)
 
-	db := builder.DB()
+	db := builder.Executor()
 	rows, err := db.QueryContext(builder.Context(), sql, builder.GetBindings()...)
 	if err != nil {
 		return false, err

@@ -154,6 +154,58 @@ func (builder *Builder) MustPaginate(pageSize int, page int, v ...interface{}) x
 	return res
 }
 
+// PaginateRecordSet paginate the given query into a compact RecordSet paginator.
+func (builder *Builder) PaginateRecordSet(pageSize int, page int) (xun.RecordSetPaginator, error) {
+	if page < 1 {
+		page = 1
+	}
+
+	if pageSize < 1 {
+		pageSize = 15
+	}
+
+	var (
+		total     int
+		countErr  error
+		recordSet *xun.RecordSet
+		dataErr   error
+		wg        sync.WaitGroup
+	)
+
+	countBuilder := builder.clone()
+	dataBuilder := builder.clone()
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		total, countErr = countBuilder.getCountForPagination([]interface{}{"*"})
+	}()
+
+	go func() {
+		defer wg.Done()
+		recordSet, dataErr = dataBuilder.forPage(page, pageSize).GetRecordSet()
+	}()
+
+	wg.Wait()
+
+	if countErr != nil {
+		return xun.MakeRecordSetPaginator(0, pageSize, page, nil), countErr
+	}
+	if dataErr != nil {
+		return xun.MakeRecordSetPaginator(0, pageSize, page, nil), dataErr
+	}
+
+	return xun.MakeRecordSetPaginator(total, pageSize, page, recordSet), nil
+}
+
+// MustPaginateRecordSet paginate the given query into a compact RecordSet paginator, panicking on error.
+func (builder *Builder) MustPaginateRecordSet(pageSize int, page int) xun.RecordSetPaginator {
+	res, err := builder.PaginateRecordSet(pageSize, page)
+	utils.PanicIF(err)
+	return res
+}
+
+
 // Set the limit and offset for a given page.
 func (builder *Builder) forPage(page int, pageSize int) Query {
 	return builder.Offset((page - 1) * pageSize).Limit(pageSize)

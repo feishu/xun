@@ -112,3 +112,43 @@ func BenchmarkDirectExecWrite(b *testing.B) {
 		}
 	}
 }
+
+func TestQueryWithTx_RollbackAndCommit(t *testing.T) {
+	NewTableForQueryTest()
+	qb := getTestBuilder()
+
+	// 1. 开启物理事务并绑定至 Builder
+	tx, err := qb.DB(true).Beginx()
+	assert.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+
+	txQB := qb.WithTx(tx)
+	assert.NotNil(t, txQB.Tx())
+
+	// 2. 事务内插入数据
+	err = txQB.Table("table_test_query").Insert(map[string]interface{}{
+		"email": "tx_rollback@yao.run",
+		"score": 88.8,
+	})
+	assert.NoError(t, err)
+
+	// 事务内查询应当可见
+	hasInTx, err := txQB.Table("table_test_query").Where("email", "tx_rollback@yao.run").Exists()
+	assert.NoError(t, err)
+	assert.True(t, hasInTx, "事务内应能查询到未提交记录")
+
+	// 事务外查询应当不可见 (隔离性)
+	hasOutTx, err := qb.Table("table_test_query").Where("email", "tx_rollback@yao.run").Exists()
+	assert.NoError(t, err)
+	assert.False(t, hasOutTx, "事务外未提交前不应可见该记录")
+
+	// 3. 执行物理回滚
+	err = tx.Rollback()
+	assert.NoError(t, err)
+
+	// 4. 回滚后数据库内确不存在
+	hasAfterRollback, err := qb.Table("table_test_query").Where("email", "tx_rollback@yao.run").Exists()
+	assert.NoError(t, err)
+	assert.False(t, hasAfterRollback, "事务物理回滚后记录必须不存在")
+}
+

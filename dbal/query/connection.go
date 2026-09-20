@@ -10,6 +10,14 @@ func (builder *Builder) DB(usewrite ...bool) *sqlx.DB {
 	return builder.Conn.Read
 }
 
+// Executor Get the active execution context (either Tx if in transaction, or sqlx.DB connection)
+func (builder *Builder) Executor(usewrite ...bool) sqlx.ExtContext {
+	if builder.tx != nil {
+		return builder.tx
+	}
+	return builder.DB(usewrite...)
+}
+
 // UseWrite Use the write connection for query.
 func (builder *Builder) UseWrite() Query {
 	builder.Query.UseWriteConnection = true

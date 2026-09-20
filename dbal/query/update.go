@@ -16,7 +16,7 @@ func (builder *Builder) Update(v interface{}) (int64, error) {
 	sql, bindings := builder.Grammar.CompileUpdate(builder.Query, values)
 	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
+	res, err := builder.Executor(true).ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}
@@ -76,7 +76,7 @@ func (builder *Builder) Upsert(v interface{}, uniqueBy interface{}, update inter
 	sql, bindings := builder.Grammar.CompileUpsert(builder.Query, columns, values, utils.Flatten(uniqueBy), update)
 	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
+	res, err := builder.Executor(true).ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}

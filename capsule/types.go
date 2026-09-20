@@ -16,8 +16,10 @@ type Manager struct {
 
 // Pool the connection pool
 type Pool struct {
-	Primary  []*Connection
-	Readonly []*Connection
+	Primary     []*Connection
+	Readonly    []*Connection
+	primaryIdx  uint64
+	readonlyIdx uint64
 }
 
 // Connection The database connection

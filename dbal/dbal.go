@@ -313,12 +313,15 @@ func (query *Query) Clone() *Query {
 
 // CopyBindings copy Bindings
 func (query *Query) CopyBindings() map[string][]interface{} {
-	new := map[string][]interface{}{}
+	new := make(map[string][]interface{}, len(query.Bindings))
 	for key, bindings := range query.Bindings {
-		new[key] = []interface{}{}
-		for _, binding := range bindings {
-			new[key] = append(new[key], binding)
+		if len(bindings) == 0 {
+			new[key] = []interface{}{}
+			continue
 		}
+		dst := make([]interface{}, len(bindings))
+		copy(dst, bindings)
+		new[key] = dst
 	}
 	return new
 }
@@ -343,82 +346,91 @@ func (query *Query) CopyFrom() From {
 
 // CopyColumns copy columns
 func (query *Query) CopyColumns() []interface{} {
-	new := []interface{}{}
-	for _, column := range query.Columns {
-		new = append(new, column)
+	if len(query.Columns) == 0 {
+		return []interface{}{}
 	}
+	new := make([]interface{}, len(query.Columns))
+	copy(new, query.Columns)
 	return new
 }
 
 // CopyDistinctColumns copy DistinctColumns
 func (query *Query) CopyDistinctColumns() []interface{} {
-	new := []interface{}{}
-	for _, column := range query.DistinctColumns {
-		new = append(new, column)
+	if len(query.DistinctColumns) == 0 {
+		return []interface{}{}
 	}
+	new := make([]interface{}, len(query.DistinctColumns))
+	copy(new, query.DistinctColumns)
 	return new
 }
 
 // CopyWheres copy wheres
 func (query *Query) CopyWheres() []Where {
-	new := []Where{}
-	for _, where := range query.Wheres {
-		new = append(new, where)
+	if len(query.Wheres) == 0 {
+		return []Where{}
 	}
+	new := make([]Where, len(query.Wheres))
+	copy(new, query.Wheres)
 	return new
 }
 
 // CopyJoins copy joins
 func (query *Query) CopyJoins() []Join {
-	new := []Join{}
-	for _, join := range query.Joins {
-		new = append(new, join)
+	if len(query.Joins) == 0 {
+		return []Join{}
 	}
+	new := make([]Join, len(query.Joins))
+	copy(new, query.Joins)
 	return new
 }
 
 // CopyUnions copy unions
 func (query *Query) CopyUnions() []Union {
-	new := []Union{}
-	for _, union := range query.Unions {
-		new = append(new, union)
+	if len(query.Unions) == 0 {
+		return []Union{}
 	}
+	new := make([]Union, len(query.Unions))
+	copy(new, query.Unions)
 	return new
 }
 
 // CopyUnionOrders copy UnionOrders
 func (query *Query) CopyUnionOrders() []Order {
-	new := []Order{}
-	for _, order := range query.UnionOrders {
-		new = append(new, order)
+	if len(query.UnionOrders) == 0 {
+		return []Order{}
 	}
+	new := make([]Order, len(query.UnionOrders))
+	copy(new, query.UnionOrders)
 	return new
 }
 
 // CopyOrders copy Orders
 func (query *Query) CopyOrders() []Order {
-	new := []Order{}
-	for _, order := range query.Orders {
-		new = append(new, order)
+	if len(query.Orders) == 0 {
+		return []Order{}
 	}
+	new := make([]Order, len(query.Orders))
+	copy(new, query.Orders)
 	return new
 }
 
 // CopyGroups copy Groups
 func (query *Query) CopyGroups() []interface{} {
-	new := []interface{}{}
-	for _, group := range query.Groups {
-		new = append(new, group)
+	if len(query.Groups) == 0 {
+		return []interface{}{}
 	}
+	new := make([]interface{}, len(query.Groups))
+	copy(new, query.Groups)
 	return new
 }
 
 // CopyHavings copy Havings
 func (query *Query) CopyHavings() []Having {
-	new := []Having{}
-	for _, having := range query.Havings {
-		new = append(new, having)
+	if len(query.Havings) == 0 {
+		return []Having{}
 	}
+	new := make([]Having, len(query.Havings))
+	copy(new, query.Havings)
 	return new
 }
 

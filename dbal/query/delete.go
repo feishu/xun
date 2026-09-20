@@ -10,7 +10,7 @@ func (builder *Builder) Delete() (int64, error) {
 	sql, bindings := builder.Grammar.CompileDelete(builder.Query)
 	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
+	res, err := builder.Executor(true).ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}
@@ -30,7 +30,7 @@ func (builder *Builder) Truncate() error {
 	sqls, bindings := builder.Grammar.CompileTruncate(builder.Query)
 	for i, sql := range sqls {
 		defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
-		_, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings[i]...)
+		_, err := builder.Executor(true).ExecContext(builder.Context(), sql, bindings[i]...)
 		if err != nil {
 			return err
 		}

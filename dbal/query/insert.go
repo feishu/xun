@@ -13,7 +13,7 @@ func (builder *Builder) Insert(v interface{}, columns ...interface{}) error {
 	sql, bindings := builder.Grammar.CompileInsert(builder.Query, columns, values)
 	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	_, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
+	_, err := builder.Executor(true).ExecContext(builder.Context(), sql, bindings...)
 	return err
 }
 
@@ -29,7 +29,7 @@ func (builder *Builder) InsertOrIgnore(v interface{}, columns ...interface{}) (i
 	sql, bindings := builder.Grammar.CompileInsertOrIgnore(builder.Query, columns, values)
 	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
+	res, err := builder.Executor(true).ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}
@@ -75,7 +75,7 @@ func (builder *Builder) InsertUsing(qb interface{}, columns ...interface{}) (int
 	sql := builder.parseSub(sub)
 	sql = builder.Grammar.CompileInsertUsing(builder.Query, columns, sql)
 
-	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
+	res, err := builder.Executor(true).ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}

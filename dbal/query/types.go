@@ -16,6 +16,7 @@ type Builder struct {
 	Schema   string
 	Grammar  dbal.Grammar
 	Ctx      context.Context
+	tx       *sqlx.Tx
 }
 
 // Connection DB Connection

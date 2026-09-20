@@ -71,3 +71,15 @@ func TestPing(t *testing.T) {
 	err = conn.Ping(1 * time.Second)
 	assert.Equal(t, "context deadline exceeded", err.Error())
 }
+
+func TestAddConnectionDedup(t *testing.T) {
+	unit.SetLogger()
+	m := New()
+	m.AddConn("primary1", unit.Driver(), unit.DSN(), 2*time.Second)
+	assert.Equal(t, 1, len(m.Pool.Primary))
+	assert.Equal(t, 0, len(m.Pool.Readonly))
+
+	m.AddReadConn("readonly1", unit.Driver(), unit.DSN(), 2*time.Second)
+	assert.Equal(t, 1, len(m.Pool.Primary))
+	assert.Equal(t, 1, len(m.Pool.Readonly))
+}

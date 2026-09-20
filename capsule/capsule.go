@@ -125,7 +125,6 @@ func (manager *Manager) AddConnection(name string, driver string, datasource str
 		Config: &config,
 	}
 
-	manager.Pool.Primary = append(manager.Pool.Primary, conn)
 	if config.ReadOnly == true {
 		manager.Pool.Readonly = append(manager.Pool.Readonly, conn)
 	} else {

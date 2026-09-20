@@ -19,6 +19,8 @@ type Query interface {
 	Driver() (string, error)
 	WithContext(ctx context.Context) Query
 	Context() context.Context
+	WithTx(tx *sqlx.Tx) Query
+	Tx() *sqlx.Tx
 
 	// defined in the query.go file
 	Table(name string) Query
@@ -42,6 +44,8 @@ type Query interface {
 	// defined in the paginate.go file
 	Paginate(perpage int, page int, v ...interface{}) (xun.P, error)
 	MustPaginate(perpage int, page int, v ...interface{}) xun.P
+	PaginateRecordSet(perpage int, page int) (xun.RecordSetPaginator, error)
+	MustPaginateRecordSet(perpage int, page int) xun.RecordSetPaginator
 	Chunk(size int, callback func(items []interface{}, page int) error, v ...interface{}) error
 	MustChunk(size int, callback func(items []interface{}, page int) error, v ...interface{})
 
