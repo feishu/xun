@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -11,6 +12,21 @@ import (
 	_ "github.com/yaoapp/xun/grammar/postgres" // Load the Postgres Grammar
 	_ "github.com/yaoapp/xun/grammar/sqlite3"  // Load the SQLite3 Grammar
 )
+
+// WithContext set the context for query execution (returns a safe clone)
+func (builder *Builder) WithContext(ctx context.Context) Query {
+	cloned := builder.clone()
+	cloned.Ctx = ctx
+	return cloned
+}
+
+// Context get the context for query execution, defaults to context.Background()
+func (builder *Builder) Context() context.Context {
+	if builder.Ctx != nil {
+		return builder.Ctx
+	}
+	return context.Background()
+}
 
 // New create a new schema interface using the given driver and DSN
 func New(driver string, dsn string) Query {

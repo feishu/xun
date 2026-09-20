@@ -35,7 +35,7 @@ func (grammarSQL Dameng) GetVersion() (*dbal.Version, error) {
 // GetTables Get all of the table names for the database.
 func (grammarSQL Dameng) GetTables() ([]string, error) {
 	sql := "SELECT TABLE_NAME FROM ALL_TABLES WHERE (OWNER = USER OR OWNER = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')) ORDER BY TABLE_NAME"
-	defer log.Debug(sql)
+	defer log.Debug("%s", sql)
 	tables := []string{}
 	err := grammarSQL.DB.Select(&tables, sql)
 	if err != nil {
@@ -70,7 +70,7 @@ func (grammarSQL Dameng) TableExists(name string) (bool, error) {
 		grammarSQL.VAL(strings.ToUpper(name)),
 		grammarSQL.VAL(strings.ToLower(name)),
 	)
-	defer log.Debug(sql)
+	defer log.Debug("%s", sql)
 	var cnt int
 	err := grammarSQL.DB.Get(&cnt, sql)
 	if err != nil {
@@ -128,7 +128,7 @@ func (grammarSQL Dameng) CreateTable(table *dbal.Table, options ...dbal.CreateTa
 	sql = sql + fmt.Sprintf("\n)")
 
 	// Create table
-	defer log.Debug(sql)
+	defer log.Debug("%s", sql)
 	_, err = grammarSQL.DB.Exec(sql)
 	if err != nil {
 		return err
@@ -178,7 +178,7 @@ func (grammarSQL Dameng) createTableCreateIndex(table *dbal.Table, indexes []*db
 		indexStmt := grammarSQL.SQLAddIndex(index)
 		if indexStmt != "" {
 			indexStmt = strings.TrimSuffix(strings.TrimSpace(indexStmt), ";")
-			defer log.Debug(indexStmt)
+			defer log.Debug("%s", indexStmt)
 			_, err := grammarSQL.DB.Exec(indexStmt)
 			if err != nil {
 				return err
@@ -192,7 +192,7 @@ func (grammarSQL Dameng) createTableAddComment(table *dbal.Table, commentStmts [
 	for _, sql := range commentStmts {
 		sql = strings.TrimSuffix(strings.TrimSpace(sql), ";")
 		if sql != "" {
-			defer log.Debug(sql)
+			defer log.Debug("%s", sql)
 			_, err := grammarSQL.DB.Exec(sql)
 			if err != nil {
 				return err
@@ -205,7 +205,7 @@ func (grammarSQL Dameng) createTableAddComment(table *dbal.Table, commentStmts [
 // RenameTable rename a table on the schema.
 func (grammarSQL Dameng) RenameTable(old string, new string) error {
 	sql := fmt.Sprintf("ALTER TABLE %s RENAME TO %s", grammarSQL.ID(old), grammarSQL.ID(new))
-	defer log.Debug(sql)
+	defer log.Debug("%s", sql)
 	_, err := grammarSQL.DB.Exec(sql)
 	return err
 }
@@ -213,7 +213,7 @@ func (grammarSQL Dameng) RenameTable(old string, new string) error {
 // DropTable drop a table on the schema.
 func (grammarSQL Dameng) DropTable(name string) error {
 	sql := fmt.Sprintf("DROP TABLE %s", grammarSQL.ID(name))
-	defer log.Debug(sql)
+	defer log.Debug("%s", sql)
 	_, err := grammarSQL.DB.Exec(sql)
 	return err
 }
@@ -354,7 +354,7 @@ func (grammarSQL Dameng) AlterTable(table *dbal.Table) error {
 		}
 	}
 
-	defer log.Debug(strings.Join(stmts, "\n"))
+	defer log.Debug("%s", strings.Join(stmts, "\n"))
 
 	// Return Errors
 	if len(errs) > 0 {
@@ -507,7 +507,7 @@ func (grammarSQL Dameng) GetColumnListing(dbName string, tableName string) ([]*d
 		ORDER BY c.COLUMN_ID
 	`, grammarSQL.VAL(realTableName))
 
-	defer log.Debug(sql)
+	defer log.Debug("%s", sql)
 
 	rows, err := grammarSQL.DB.Query(sql)
 	if err != nil {
@@ -644,7 +644,7 @@ func (grammarSQL Dameng) GetIndexListing(dbName string, tableName string) ([]*db
 		ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION
 	`, grammarSQL.VAL(realTableName))
 
-	defer log.Debug(sql)
+	defer log.Debug("%s", sql)
 
 	rows, err := grammarSQL.DB.Query(sql)
 	if err != nil {

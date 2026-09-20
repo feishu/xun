@@ -20,16 +20,12 @@ func (builder *Builder) Table(name string) Query {
 // Get Execute the query as a "select" statement.
 func (builder *Builder) Get(v ...interface{}) ([]xun.R, error) {
 	db := builder.DB()
-	stmt, err := db.Prepare(builder.ToSQL())
-	if err != nil {
-		defer log.With(log.F{"bindings": builder.GetBindings()}).Error(builder.ToSQL())
-		return nil, err
-	}
+	sqlStr := builder.ToSQL()
+	bindings := builder.GetBindings()
 
-	defer stmt.Close()
-
-	rows, err := stmt.Query(builder.GetBindings()...)
+	rows, err := db.QueryContext(builder.Context(), sqlStr, bindings...)
 	if err != nil {
+		defer log.With(log.F{"bindings": bindings}).Error("%s", sqlStr)
 		return nil, err
 	}
 
@@ -88,7 +84,7 @@ func (builder *Builder) Exists() (bool, error) {
 	sql := builder.Grammar.CompileExists(builder.Query)
 
 	db := builder.DB()
-	rows, err := db.Query(sql, builder.GetBindings()...)
+	rows, err := db.QueryContext(builder.Context(), sql, builder.GetBindings()...)
 	if err != nil {
 		return false, err
 	}

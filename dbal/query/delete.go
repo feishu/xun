@@ -8,9 +8,9 @@ import (
 // Delete Delete records from the database.
 func (builder *Builder) Delete() (int64, error) {
 	sql, bindings := builder.Grammar.CompileDelete(builder.Query)
-	defer log.With(log.F{"bindings": bindings}).Debug(sql)
+	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	res, err := builder.UseWrite().DB().Exec(sql, bindings...)
+	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}
@@ -29,8 +29,8 @@ func (builder *Builder) MustDelete() int64 {
 func (builder *Builder) Truncate() error {
 	sqls, bindings := builder.Grammar.CompileTruncate(builder.Query)
 	for i, sql := range sqls {
-		defer log.With(log.F{"bindings": bindings}).Debug(sql)
-		_, err := builder.UseWrite().DB().Exec(sql, bindings[i]...)
+		defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
+		_, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings[i]...)
 		if err != nil {
 			return err
 		}

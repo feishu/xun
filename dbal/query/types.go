@@ -1,6 +1,8 @@
 package query
 
 import (
+	"context"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/yaoapp/xun/dbal"
 )
@@ -13,6 +15,7 @@ type Builder struct {
 	Database string
 	Schema   string
 	Grammar  dbal.Grammar
+	Ctx      context.Context
 }
 
 // Connection DB Connection

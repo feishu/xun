@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/yaoapp/xun"
 	"github.com/yaoapp/xun/dbal"
@@ -96,14 +97,35 @@ func (builder *Builder) Paginate(pageSize int, page int, v ...interface{}) (xun.
 		pageSize = 15
 	}
 
-	total, err := builder.getCountForPagination([]interface{}{"*"})
-	if err != nil {
-		return xun.MakePaginator(0, pageSize, page), err
-	}
+	var (
+		total    int
+		countErr error
+		rows     []xun.R
+		dataErr  error
+		wg       sync.WaitGroup
+	)
 
-	rows, err := builder.forPage(page, pageSize).Get(v...)
-	if err != nil {
-		return xun.MakePaginator(0, pageSize, page), err
+	countBuilder := builder.clone()
+	dataBuilder := builder.clone()
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		total, countErr = countBuilder.getCountForPagination([]interface{}{"*"})
+	}()
+
+	go func() {
+		defer wg.Done()
+		rows, dataErr = dataBuilder.forPage(page, pageSize).Get(v...)
+	}()
+
+	wg.Wait()
+
+	if countErr != nil {
+		return xun.MakePaginator(0, pageSize, page), countErr
+	}
+	if dataErr != nil {
+		return xun.MakePaginator(0, pageSize, page), dataErr
 	}
 
 	items := []interface{}{}

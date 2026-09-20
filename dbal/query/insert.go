@@ -11,15 +11,9 @@ import (
 func (builder *Builder) Insert(v interface{}, columns ...interface{}) error {
 	columns, values := builder.prepareInsertValues(v, columns...)
 	sql, bindings := builder.Grammar.CompileInsert(builder.Query, columns, values)
-	defer log.With(log.F{"bindings": bindings}).Debug(sql)
+	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	stmt, err := builder.UseWrite().DB().Prepare(sql)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(bindings...)
+	_, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
 	return err
 }
 
@@ -33,15 +27,9 @@ func (builder *Builder) MustInsert(v interface{}, columns ...interface{}) {
 func (builder *Builder) InsertOrIgnore(v interface{}, columns ...interface{}) (int64, error) {
 	columns, values := builder.prepareInsertValues(v, columns...)
 	sql, bindings := builder.Grammar.CompileInsertOrIgnore(builder.Query, columns, values)
-	defer log.With(log.F{"bindings": bindings}).Debug(sql)
+	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 
-	stmt, err := builder.UseWrite().DB().Prepare(sql)
-	if err != nil {
-		return 0, err
-	}
-	defer stmt.Close()
-
-	res, err := stmt.Exec(bindings...)
+	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}
@@ -68,7 +56,7 @@ func (builder *Builder) InsertGetID(v interface{}, args ...interface{}) (int64, 
 
 	columns, values := builder.prepareInsertValues(v, columns...)
 	sql, bindings := builder.Grammar.CompileInsertGetID(builder.Query, columns, values, seq)
-	defer log.With(log.F{"bindings": bindings}).Debug(sql)
+	defer log.With(log.F{"bindings": bindings}).Debug("%s", sql)
 	return builder.Grammar.ProcessInsertGetID(sql, bindings, seq)
 }
 
@@ -87,13 +75,7 @@ func (builder *Builder) InsertUsing(qb interface{}, columns ...interface{}) (int
 	sql := builder.parseSub(sub)
 	sql = builder.Grammar.CompileInsertUsing(builder.Query, columns, sql)
 
-	stmt, err := builder.UseWrite().DB().Prepare(sql)
-	if err != nil {
-		return 0, err
-	}
-	defer stmt.Close()
-
-	res, err := stmt.Exec(bindings...)
+	res, err := builder.UseWrite().DB().ExecContext(builder.Context(), sql, bindings...)
 	if err != nil {
 		return 0, err
 	}

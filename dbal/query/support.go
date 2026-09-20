@@ -240,20 +240,21 @@ func (builder *Builder) flattenValue(value interface{}) interface{} {
 // MapScan scan the result from sql.Rows
 func (builder *Builder) mapScan(rows *sql.Rows) ([]xun.R, error) {
 	defer rows.Close()
-	res := []xun.R{}
+	res := make([]xun.R, 0, 16)
 
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 
-	values := builder.makeMapValues(len(columns))
+	colLen := len(columns)
+	values := builder.makeMapValues(colLen)
 
 	for rows.Next() {
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
 		}
-		dest := xun.R{}
+		dest := make(xun.R, colLen)
 		for i, column := range columns {
 			dest[column] = builder.getValue(values[i])
 		}
@@ -357,16 +358,19 @@ func (builder *Builder) getFieldMap(structType reflect.Type) (map[string]reflect
 }
 
 func (builder *Builder) getValue(src interface{}) interface{} {
-	value := src
-	if reflect.TypeOf(src).Kind() == reflect.Ptr {
+	if src == nil {
+		return nil
+	}
+	var value interface{} = src
+	if ptr, ok := src.(*interface{}); ok {
+		value = *ptr
+	} else if reflect.TypeOf(src).Kind() == reflect.Ptr {
 		value = reflect.Indirect(reflect.ValueOf(src)).Interface()
 	}
-	switch value.(type) {
-	case []byte:
-		return string(value.([]byte))
-	default:
-		return value
+	if b, ok := value.([]byte); ok {
+		return string(b)
 	}
+	return value
 }
 
 func (builder *Builder) makeMapValues(length int) []interface{} {

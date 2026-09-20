@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/jmoiron/sqlx"
@@ -16,6 +17,8 @@ type Query interface {
 	Reset() Query
 	Builder() *Builder
 	Driver() (string, error)
+	WithContext(ctx context.Context) Query
+	Context() context.Context
 
 	// defined in the query.go file
 	Table(name string) Query
