@@ -24,6 +24,8 @@ type Query interface {
 	Table(name string) Query
 	Get(v ...interface{}) ([]xun.R, error)
 	MustGet(v ...interface{}) []xun.R
+	GetRecordSet() (*xun.RecordSet, error)
+	MustGetRecordSet() *xun.RecordSet
 	First(v ...interface{}) (xun.R, error)
 	MustFirst(v ...interface{}) xun.R
 	Find(id interface{}, args ...interface{}) (xun.R, error)

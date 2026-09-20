@@ -268,6 +268,40 @@ func (builder *Builder) mapScan(rows *sql.Rows) ([]xun.R, error) {
 	return res, nil
 }
 
+// recordSetScan scan the result from sql.Rows into a compact RecordSet
+func (builder *Builder) recordSetScan(rows *sql.Rows) (*xun.RecordSet, error) {
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	colLen := len(columns)
+	values := builder.makeMapValues(colLen)
+	recordSet := &xun.RecordSet{
+		Columns: columns,
+		Rows:    make([][]interface{}, 0, 16),
+	}
+
+	for rows.Next() {
+		if err := rows.Scan(values...); err != nil {
+			return nil, err
+		}
+		row := make([]interface{}, colLen)
+		for i := 0; i < colLen; i++ {
+			row[i] = builder.getValue(values[i])
+		}
+		recordSet.Rows = append(recordSet.Rows, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return recordSet, nil
+}
+
 // structScan scan the result from sql.Rows
 func (builder *Builder) structScan(rows *sql.Rows, v interface{}) error {
 	defer rows.Close()
@@ -361,17 +395,57 @@ func (builder *Builder) getValue(src interface{}) interface{} {
 	if src == nil {
 		return nil
 	}
-	var value interface{} = src
-	if ptr, ok := src.(*interface{}); ok {
-		value = *ptr
-	} else if reflect.TypeOf(src).Kind() == reflect.Ptr {
-		value = reflect.Indirect(reflect.ValueOf(src)).Interface()
+
+	var value interface{}
+	// 高频指针与常见基础类型的零反射快速解引用路径 (Fast-Path Type Switch)
+	switch v := src.(type) {
+	case *interface{}:
+		if v != nil {
+			value = *v
+		}
+	case *string:
+		if v != nil {
+			return *v
+		}
+	case *[]byte:
+		if v != nil {
+			return string(*v)
+		}
+	case *int64:
+		if v != nil {
+			return *v
+		}
+	case *int:
+		if v != nil {
+			return *v
+		}
+	case *float64:
+		if v != nil {
+			return *v
+		}
+	case *bool:
+		if v != nil {
+			return *v
+		}
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	default:
+		// 慢路径回退到反射 (用于处理自定义结构体指针等特殊驱动类型)
+		if reflect.TypeOf(src).Kind() == reflect.Ptr {
+			value = reflect.Indirect(reflect.ValueOf(src)).Interface()
+		} else {
+			value = src
+		}
 	}
+
 	if b, ok := value.([]byte); ok {
 		return string(b)
 	}
 	return value
 }
+
 
 func (builder *Builder) makeMapValues(length int) []interface{} {
 	values := make([]interface{}, length)

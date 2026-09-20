@@ -50,6 +50,28 @@ func (builder *Builder) MustGet(v ...interface{}) []xun.R {
 	return res
 }
 
+// GetRecordSet Execute the query and return a compact column-oriented RecordSet
+func (builder *Builder) GetRecordSet() (*xun.RecordSet, error) {
+	db := builder.DB()
+	sqlStr := builder.ToSQL()
+	bindings := builder.GetBindings()
+
+	rows, err := db.QueryContext(builder.Context(), sqlStr, bindings...)
+	if err != nil {
+		defer log.With(log.F{"bindings": bindings}).Error("%s", sqlStr)
+		return nil, err
+	}
+
+	return builder.recordSetScan(rows)
+}
+
+// MustGetRecordSet Execute the query and return a compact RecordSet, panicking on error
+func (builder *Builder) MustGetRecordSet() *xun.RecordSet {
+	res, err := builder.GetRecordSet()
+	utils.PanicIF(err)
+	return res
+}
+
 // First Execute the query and get the first result.
 func (builder *Builder) First(v ...interface{}) (xun.R, error) {
 	rows, err := builder.Take(1).Get(v...)
