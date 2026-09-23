@@ -1,8 +1,6 @@
 module github.com/yaoapp/xun
 
-go 1.24.0
-
-toolchain go1.25.5
+go 1.26.0
 
 require (
 	gitee.com/chunanyong/dm v1.8.22
