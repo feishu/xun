@@ -251,6 +251,9 @@ func (builder *Builder) mapScan(rows *sql.Rows) ([]xun.R, error) {
 	values := builder.makeMapValues(colLen)
 
 	for rows.Next() {
+		if ctx := builder.Context(); ctx != nil && ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
 		}
@@ -285,6 +288,9 @@ func (builder *Builder) recordSetScan(rows *sql.Rows) (*xun.RecordSet, error) {
 	}
 
 	for rows.Next() {
+		if ctx := builder.Context(); ctx != nil && ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
 		}
@@ -328,6 +334,9 @@ func (builder *Builder) structScan(rows *sql.Rows, v interface{}) error {
 	vRows := reflect.Indirect(vPtr)
 	vSlice := vRows.Kind() == reflect.Slice
 	for rows.Next() {
+		if ctx := builder.Context(); ctx != nil && ctx.Err() != nil {
+			return ctx.Err()
+		}
 		dest := reflect.New(structType)
 		if vStruct {
 			values, err := builder.makeStructValues(dest, fieldMap, columns)

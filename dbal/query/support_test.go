@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -75,4 +76,27 @@ func TestRecordSetToR(t *testing.T) {
 	assert.Equal(t, "Bob", rList[1]["name"])
 	assert.Equal(t, "bob@example.com", rList[1]["email"])
 }
+
+func TestScanContextCancellationDuringIteration(t *testing.T) {
+	NewTableForQueryTest()
+	qb := getTestBuilder()
+
+	// Normal query gets rows
+	res, err := qb.Table("table_test_query").Get()
+	assert.NoError(t, err)
+	assert.Greater(t, len(res), 0)
+
+	// Context with cancel upfront
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = qb.WithContext(ctx).Table("table_test_query").Get()
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+
+	// Test RecordSetScan context cancellation
+	_, err = qb.WithContext(ctx).Table("table_test_query").GetRecordSet()
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
 
